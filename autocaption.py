@@ -1,13 +1,12 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 """
-Flux-Captioner: The BEST Auto-Captioner for Flux.1-dev LoRA Training
-Now with SAFE / EXPLICIT mode, progress bar, skip-existing, and perfect prefixes.
+Flux-Captioner: The #1 Auto-Captioner for Flux.1-dev LoRA Training
+SAFE / EXPLICIT mode • Close-up aware • Ollama-powered • NSFW-ready
 """
 
 import os
 import re
 import base64
-import json
 import csv
 import argparse
 from datetime import datetime
@@ -15,6 +14,7 @@ import requests
 from tqdm import tqdm
 
 # === CONFIG ================================================================
+# Recommended: redule26/huihui_ai_qwen2.5-vl-7b-abliterated (uncensored)
 MODEL = "redule26/huihui_ai_qwen2.5-vl-7b-abliterated"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
@@ -30,7 +30,7 @@ def get_prompt_template(explicit: bool, tag: str, is_closeup: bool = False) -> s
                 "This is a close-up shot. Describe visible body parts explicitly and accurately using direct terms: "
                 "breasts, nipples, areola, penis, testicles, vulva, labia, anus, erection, spread legs, etc. "
                 "Include shape, size, color, texture, and state (e.g., erect, wet, shaved). "
-                "Start with 'close-up of {tag},' and keep under 40 words."
+                f"Start with 'close-up of {tag},' and keep under 40 words."
             )
         else:
             return base + (
@@ -63,7 +63,7 @@ def clean_caption(text: str, explicit: bool) -> str:
             "penis": "lower body", "cock": "lower body", "dick": "lower body",
             "pussy": "lower body", "vagina": "lower body", "vulva": "lower body",
             "anus": "rear", "labia": "skin", "areola": "skin",
-            "nude": "undressed", "naked": "undressed", "naked": "undressed",
+            "nude": "undressed", "naked": "undressed",
             "erect": "prominent", "erection": "prominence",
         }
         pattern = r"\b(" + "|".join(re.escape(k) for k in replacements.keys()) + r")\b"
@@ -75,8 +75,9 @@ def clean_caption(text: str, explicit: bool) -> str:
 def enforce_prefix(caption: str, prefix: str, tag: str) -> str:
     lower_cap = caption.lower()
     tag_lower = tag.lower()
-    if not (lower_cap.startswith(f"photo of {tag_lower}") or
-            lower_cap.startswith(f"close-up of {tag_lower}")):
+    expected1 = f"photo of {tag_lower}"
+    expected2 = f"close-up of {tag_lower}"
+    if not (lower_cap.startswith(expected1) or lower_cap.startswith(expected2)):
         return f"{prefix}, {caption}"
     return caption
 
@@ -113,19 +114,21 @@ def caption_image(model: str, img_path: str, tag: str, explicit: bool) -> str:
 def main(args=None):
     parser = argparse.ArgumentParser(description="Flux-Captioner: Auto-caption for Flux.1-dev LoRA")
     parser.add_argument("dataset", nargs="?", help="Path to dataset folder")
-    parser.add_argument("--tag", "-t", default="sks person", help="Trigger token")
+    parser.add_argument("--tag", "-t", default="alyssa character",
+                        help="Fictional trigger tag (e.g., 'alyssa character', 'kira oc')")
     parser.add_argument("--explicit", "-e", action="store_true", help="EXPLICIT (NSFW) mode")
     parser.add_argument("--review", "-r", action="store_true", help="Manually review captions")
     parser.add_argument("--skip", "-s", action="store_true", help="Skip existing .txt files")
+
     if args is None:
         args = parser.parse_args()
 
     # Interactive mode
     if not args.dataset:
-        print("=== Flux-Captioner (SAFE / EXPLICIT) ===\n")
+        print("\n=== Flux-Captioner: Fictional LoRA Captioning Tool ===\n")
         args.dataset = input("Dataset folder path: ").strip()
-        args.tag = input("Trigger tag (e.g., 'xena_lobert'): ").strip() or "sks person"
-        mode = input("Mode? [1] SAFE [2] EXPLICIT → ").strip()
+        args.tag = input("Fictional trigger tag (e.g., 'alyssa character', 'kira oc'): ").strip() or "alyssa character"
+        mode = input("Mode? [1] SAFE (SFW)  [2] EXPLICIT (NSFW) → ").strip()
         args.review = input("Review each caption? (y/N) → ").strip().lower() == 'y'
         args.explicit = mode == "2"
         args.skip = input("Skip existing captions? (Y/n) → ").strip().lower() != 'n'
@@ -170,8 +173,9 @@ def main(args=None):
                 print(f"\n→ {caption}")
                 new_cap = input("   [Enter] accept, or type new: ").strip()
                 if new_cap:
+                    prefix = "close-up of " + tag if is_closeup_image(f) else "photo of " + tag
                     caption = new_cap if new_cap.lower().startswith(
-                        ("photo of", "close-up of")) else f"photo of {tag}, {new_cap}"
+                        ("photo of", "close-up of")) else f"{prefix}, {new_cap}"
 
             with open(txt_path, "w", encoding="utf-8") as f_out:
                 f_out.write(caption)
@@ -179,9 +183,10 @@ def main(args=None):
             writer.writerow([f, caption, mode])
             tqdm.write(f"   Saved → {caption[:80]}{'...' if len(caption) > 80 else ''}")
 
-    print(f"\nFinished! Log: {log_path}")
+    print(f"\nFinished! All captions saved.")
+    print(f"Log: {log_path}")
     if explicit:
-        print("Tip: These captions are PERFECT for Flux.1-dev LoRA training!")
+        print("Pro Tip: Use these for Flux.1-dev LoRA — perfect nudity control with fictional characters!")
 
 
 if __name__ == "__main__":
