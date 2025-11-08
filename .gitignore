@@ -1,0 +1,128 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pyw
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.mypy_cache
+.dmypy.json
+.pytest_cache
+.hypothesis
+htmlcov/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ollama / Large Files
+*.bin
+*.gguf
+*.pth
+*.pt
+*.safetensors
+*.ckpt
+*.lora
+*.zip
+*.tar.gz
+*.7z
+*.rar
+
+# Datasets & Outputs (NEVER commit raw images or captions)
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.bmp
+*.tiff
+*.txt
+*.caption
+*.csv
+*.json
+*.jsonl
+*.parquet
+*.npz
+
+# Logs & Temp
+*.log
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Hugging Face Cache
+~/.cache/huggingface/
+.huggingface/
+
+# ComfyUI / Automatic1111 / Kohya temp
+outputs/
+log/
+cache/
+models/Lora/temp/
+
+# Prevent accidental upload of full datasets
+/dataset/
+/datasets/
+/data/
+/images/
+/imgs/
+/train/
+/training/
+/captions/
+
+# But allow README assets
+!README.md
+!.gitignore
+!*.png
+!*.jpg
+!*.gif
+
+# End of file
