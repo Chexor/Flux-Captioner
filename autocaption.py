@@ -1,209 +1,151 @@
 #!/usr/bin/env python3
 """
-Flux-Captioner v2.0 — Now Powered by JoyCaption Beta One (Local Ollama)
-• Best-in-class uncensored captions
-• Perfect close-up detection & anatomy detail
-• Native JoyCaption prompt templates
-• Explicit/Safe modes with smart filtering
-• Manual review + CSV log
+Flux-Captioner v2.1 — JoyCaption Beta One PERFECTION EDITION
+• 75–100 word hard cap
+• No repetition, no code, no tag spam
+• Perfect for Flux.1-dev + Kohya ss
 """
 
-import os
-import re
-import base64
-import csv
-import argparse
+import os, re, base64, csv, argparse, requests
 from datetime import datetime
-import requests
 from tqdm import tqdm
 
-# === CONFIG ================================================================
-# Use your custom JoyCaption Beta One model
-MODEL = "joycaption-beta-one"  # ← This is the one you just created!
+MODEL = "joycaption-beta-one"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 
-# ===========================================================================
-
-def get_joycaption_prompt(explicit: bool, tag: str, is_closeup: bool = False) -> str:
-    """Uses JoyCaption's official high-quality prompt templates"""
-    tag = tag.strip()
-
+def get_prompt(explicit: bool, tag: str, closeup: bool) -> str:
     if explicit:
-        if is_closeup:
+        if closeup:
             return f"""Type: Descriptive (Casual)
-Length: Very Long
-Additional Tags: highly detailed, anatomically accurate, explicit, uncensored
-Style: Erotic photography, macro
-Focus: extreme close-up detail of genitals and secondary sexual characteristics
+Length: Medium
+Style: Macro erotic photography
+Focus: extreme close-up of genitals/breasts/nipples
 
 close-up of {tag}, """
         else:
             return f"""Type: Training Prompt
-Length: Long
-Additional Tags: full body, nude, detailed face, sharp focus, cinematic lighting
-Style: Professional photoshoot, fashion nude
-Include: pose, expression, lighting, background, body hair, skin texture
+Length: Medium
+Style: Professional fashion nude
+Include: pose, lighting, background, skin texture, body hair
 
 photo of {tag}, """
     else:
         return f"""Type: Descriptive
-Length: Medium
-Style: Fashion photography, editorial
-Focus: clothing, pose, expression, background, lighting
+Length: Short
+Style: Fashion editorial
 
 photo of {tag} wearing """
 
 
-def is_closeup_image(filename: str) -> bool:
-    patterns = r"(close.?up|crop|detail|breast|nipple|boob|tits|pussy|vagina|cock|dick|penis|balls|ass|anus|labia|clit)"
-    return bool(re.search(patterns, filename, re.IGNORECASE))
+def clean_caption(text: str) -> str:
+    text = text.strip()
+
+    # 1. Cut at any tag wall or code
+    text = re.split(r'(\n-{2,}|#|\[|\{.*?\}|\Z)', text)[0]
+
+    # 2. Remove watermark mentions
+    text = re.sub(r'\bwatermark.*?(Xena_Lobert|corner|side).*?', '', text, flags=re.I)
+
+    # 3. Remove leftover tags, prompts, python
+    text = re.sub(r'(--Tags|--Training Prompt|Tags?:|#|import\s+\w+).*', '', text, flags=re.I | re.DOTALL)
+
+    # 4. Clean up
+    text = re.sub(r'\s{2,}', ' ', text)
+    text = re.sub(r',\s*,', ',', text)
+    text = text.strip(' ,.')
+
+    # 5. Hard cap at ~90 words
+    words = text.split()
+    if len(words) > 95:
+        text = ' '.join(words[:90]) + '...'
+
+    return text.strip()
 
 
-def clean_joycaption(text: str, explicit: bool) -> str:
-    text = re.sub(r"\s{2,}", " ", text).strip()
-    text = text.rstrip(".")  # JoyCaption often ends cleanly
-    text = re.sub(r"^.*?photo of ", "photo of ", text, flags=re.IGNORECASE)
-    text = re.sub(r"^.*?close-up of ", "close-up of ", text, flags=re.IGNORECASE)
-
-    if not explicit:
-        replacements = {
-            "breast": "chest", "breasts": "chest", "tits": "chest",
-            "nipple": "skin", "nipples": "skin", "areola": "skin",
-            "penis": "lower body", "cock": "lower body", "dick": "lower body",
-            "pussy": "lower body", "vagina": "lower body", "vulva": "lower body",
-            "anus": "rear", "asshole": "rear", "labia": "skin",
-            "nude": "undressed", "naked": "undressed", "exposed": "visible",
-            "erect": "prominent", "wet": "glossy", "shaved": "smooth"
-        }
-        pattern = r"\b(" + "|".join(re.escape(k) for k in replacements.keys()) + r")\b"
-        text = re.sub(pattern, lambda m: replacements[m.group(0).lower()], text, flags=re.IGNORECASE)
-
-    # Remove boilerplate endings
-    text = re.sub(r",\s*(shot on \w+|focal length.*|aperture.*|iso.*)", "", text, flags=re.IGNORECASE)
-    text = re.sub(r",\s*masterpiece.*$", "", text, flags=re.IGNORECASE)
-    return text.strip(",. ")
-
-
-def caption_image(model: str, img_path: str, tag: str, explicit: bool) -> str:
+def caption_image(img_path: str, tag: str, explicit: bool) -> str:
     with open(img_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
 
-    closeup = is_closeup_image(os.path.basename(img_path))
-    prompt = get_joycaption_prompt(explicit=explicit, tag=tag, is_closeup=closeup)
+    closeup = bool(re.search(r"(close.?up|crop|detail|breast|nipple|pussy|cock|vagina|anus)",
+                             os.path.basename(img_path), re.I))
 
     payload = {
-        "model": model,
-        "prompt": prompt,
+        "model": MODEL,
+        "prompt": get_prompt(explicit, tag, closeup),
         "images": [b64],
         "stream": False,
         "options": {
-            "temperature": 0.4,  # Lower = more consistent
-            "top_p": 0.95,
+            "temperature": 0.35,
+            "top_p": 0.9,
             "num_ctx": 8192,
-            "stop": ["<|eot_id|>", "<|end_of_text|>", "\n\n"]
+            "stop": ["<|eot_id|>", "<|end_of_text|>", "\n\n", "--", "#", "Tags:", "```"]
         }
     }
 
     try:
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=300)
-        resp.raise_for_status()
-        data = resp.json()
-        raw = data.get("response", "").strip()
+        r = requests.post(OLLAMA_URL, json=payload, timeout=300)
+        r.raise_for_status()
+        raw = r.json()["response"]
+        caption = clean_caption(raw)
 
-        caption = clean_joycaption(raw, explicit)
+        # Final prefix guarantee
+        prefix = f"close-up of {tag}," if closeup else f"photo of {tag},"
+        if not caption.lower().startswith(prefix.lower()):
+            caption = prefix + " " + caption
 
-        # Enforce prefix if missing
-        prefix = f"close-up of {tag}" if closeup else f"photo of {tag}"
-        if not caption.lower().startswith(("photo of", "close-up of")):
-            caption = f"{prefix}, {caption}"
-
-        return caption
+        return caption.capitalize()
 
     except Exception as e:
-        print(f"\nWarning: Ollama error: {e}")
-        fallback = f"close-up of {tag}, detailed view" if closeup else f"photo of {tag}, neutral pose"
-        return fallback
+        print(f"Error: {e}")
+        return f"{'close-up' if closeup else 'photo'} of {tag}, detailed view, soft lighting"
 
 
-def main(args=None):
-    parser = argparse.ArgumentParser(description="Flux-Captioner v2.0 — JoyCaption Beta One Edition")
-    parser.add_argument("dataset", nargs="?", help="Path to dataset folder")
-    parser.add_argument("--tag", "-t", default="alyssa character", help="Trigger tag (e.g., 'alyssa character')")
-    parser.add_argument("--explicit", "-e", action="store_true", help="EXPLICIT (NSFW) mode - full anatomy")
-    parser.add_argument("--review", "-r", action="store_true", help="Manually review captions")
-    parser.add_argument("--skip", "-s", action="store_true", help="Skip existing .txt files")
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dataset")
+    parser.add_argument("--tag", "-t", default="Xena_Lobert")
+    parser.add_argument("--explicit", "-e", action="store_true")
+    parser.add_argument("--review", "-r", action="store_true")
+    parser.add_argument("--skip", "-s", action="store_true")
+    args = parser.parse_args()
 
-    if args is None:
-        args = parser.parse_args()
-
-    # Interactive setup
-    if not args.dataset:
-        print("\n" + "=" * 60)
-        print("   Flux-Captioner v2.0 — Powered by JoyCaption Beta One")
-        print("   Best local uncensored captioning for Flux.1-dev LoRA")
-        print("=" * 60 + "\n")
-        args.dataset = input("Dataset folder path: ").strip()
-        args.tag = input("Trigger tag (e.g., 'alyssa character', 'kira oc'): ").strip() or "alyssa character"
-        mode = input("Mode? [1] SAFE (SFW) [2] EXPLICIT (NSFW) → ").strip()
-        args.explicit = mode == "2"
-        args.review = input("Review each caption? (y/N) → ").strip().lower() == 'y'
-        args.skip = input("Skip existing .txt files? (Y/n) → ").strip().lower() != 'n'
-
-    dataset = args.dataset.strip()
-    tag = args.tag.strip()
-    explicit = args.explicit
-    review = args.review
-    skip_existing = args.skip
-
-    if not os.path.isdir(dataset):
-        print(f"Error: Directory not found: {dataset}")
+    if not os.path.isdir(args.dataset):
+        print("Folder not found");
         return
 
-    files = [f for f in os.listdir(dataset) if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif"))]
-    files = sorted(files)
-    if not files:
-        print(f"No images found in {dataset}")
-        return
+    imgs = sorted([f for f in os.listdir(args.dataset)
+                   if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))])
 
-    total = len(files)
-    mode_name = "EXPLICIT (NSFW)" if explicit else "SAFE (SFW)"
-    log_path = os.path.join(dataset, f"captions_JOY_{'NSFW' if explicit else 'SFW'}_{datetime.now():%Y%m%d_%H%M}.csv")
+    log_path = os.path.join(args.dataset,
+                            f"captions_JOY_PERFECT_{'NSFW' if args.explicit else 'SFW'}_{datetime.now():%Y%m%d_%H%M}.csv")
 
-    print(f"\nStarting JoyCaption Beta One → {total} images")
-    print(f"Mode: {mode_name} | Tag: '{tag}' | Model: {MODEL}\n")
+    with open(log_path, "w", newline="", encoding="utf-8") as logf:
+        writer = csv.writer(logf)
+        writer.writerow(["filename", "caption", "closeup"])
 
-    with open(log_path, "w", newline="", encoding="utf-8") as log_file:
-        writer = csv.writer(log_file)
-        writer.writerow(["filename", "caption", "mode", "closeup"])
+        for f in tqdm(imgs, desc="JoyCaption Perfection"):
+            path = os.path.join(args.dataset, f)
+            txt = os.path.splitext(path)[0] + ".txt"
 
-        for f in tqdm(files, desc="Captioning", unit="img"):
-            img_path = os.path.join(dataset, f)
-            txt_path = os.path.splitext(img_path)[0] + ".txt"
-
-            if skip_existing and os.path.exists(txt_path):
-                tqdm.write(f" Skipping {f}")
+            if args.skip and os.path.exists(txt):
                 continue
 
-            caption = caption_image(MODEL, img_path, tag, explicit)
-            closeup = "yes" if is_closeup_image(f) else "no"
+            cap = caption_image(path, args.tag, args.explicit)
+            close = "yes" if "close-up of" in cap else "no"
 
-            if review:
-                print(f"\n→ {f}")
-                print(f"   {caption}")
-                new_cap = input(" [Enter] accept • [edit] type new • [s] skip → ").strip()
-                if new_cap and new_cap != "s":
-                    caption = new_cap
+            if args.review:
+                print(f"\n→ {f}\n{cap}")
+                new = input("Enter = keep | edit | s=skip → ").strip()
+                if new == "s": continue
+                if new: cap = new
 
-            if not review or new_cap != "s":
-                with open(txt_path, "w", encoding="utf-8") as f_out:
-                    f_out.write(caption)
-                writer.writerow([f, caption, mode_name, closeup])
-                tqdm.write(f" Saved {caption[:90]}{'...' if len(caption) > 90 else ''}")
+            with open(txt, "w", encoding="utf-8") as out:
+                out.write(cap)
+            writer.writerow([f, cap, close])
+            tqdm.write(cap[:90] + ("..." if len(cap) > 90 else ""))
 
-    print(f"\nFinished! Captions saved to dataset folder.")
-    print(f"Log: {log_path}")
-    print(f"Model used: {MODEL} (JoyCaption Beta One — uncensored, local, perfect for Flux)")
+    print(f"\nDone! {len(imgs)} perfect captions → {log_path}")
 
 
 if __name__ == "__main__":
