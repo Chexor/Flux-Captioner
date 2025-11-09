@@ -1,0 +1,51 @@
+default_dataset: "/srv/ai/projects/flux-lora/datasets"
+model: "joycaption-beta-one"
+ollama_url: "http://localhost:11434/api/generate"
+
+instructions:
+  explicit:
+    non_closeup: |
+      Type: Training Prompt
+      Length: Medium
+      Style: Professional fashion nude
+      Include: pose, lighting, background, skin texture, body hair, cinematic
+
+      photo of {{tag}},
+    closeup: |
+      Type: Descriptive (Casual)
+      Length: Medium
+      Style: Macro erotic photography
+      Focus: extreme close-up of genitals/breasts/nipples/anus
+
+      close-up of {{tag}},
+
+  safe:
+    non_closeup: |
+      Type: Descriptive
+      Length: Short
+      Style: Fashion editorial, fully clothed
+
+      photo of {{tag}} wearing
+    closeup: "close-up of {{tag}} wearing "
+
+temperature: 0.35
+top_p: 0.9
+max_words: 90
+
+stop_tokens:
+  - "<|eot_id|>"
+  - "<|end_of_text|>"
+  - "\n\n"
+  - "--" - "#" - "Tags:" - "```" - "import " - "Training Prompt" - "watermark"
+
+closeup_keywords:
+  - closeup - crop - detail - macro - breast - nipple - areola - pussy - vulva
+  - labia - clit - cock - penis - balls - anus - genital - crotch - spread
+
+post_processing:
+  lowercase_tag: true
+  force_comma_after_tag: true
+  remove_quotes: true
+  final_clean:
+    - "'' in bottom left corner" - "'' on the left side" - "watermark" - "©"
+    - "masterpiece" - "8k" - "absurdres" - "\\.\\.\\.$" - "\\?$" - "\\s+--.*$"
