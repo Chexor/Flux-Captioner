@@ -3,7 +3,7 @@
 # Fixed for YAML syntax
 # ================================================
 
-default_dataset: "/srv/ai/projects/flux-lora/datasets"
+default_dataset: "/srv/ai/datasets"
 model: "joycaption-beta-one"
 ollama_url: "http://localhost:11434/api/generate"
 
