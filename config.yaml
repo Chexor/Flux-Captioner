@@ -1,3 +1,8 @@
+# ================================================
+# Flux-Captioner — OFFICIAL WORKING config.yaml
+# Fixed for YAML syntax
+# ================================================
+
 default_dataset: "/srv/ai/projects/flux-lora/datasets"
 model: "joycaption-beta-one"
 ollama_url: "http://localhost:11434/api/generate"
@@ -32,20 +37,70 @@ temperature: 0.35
 top_p: 0.9
 max_words: 90
 
+# ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+# FIX: Proper YAML lists (one item per line)
+# ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 stop_tokens:
   - "<|eot_id|>"
   - "<|end_of_text|>"
   - "\n\n"
-  - "--" - "#" - "Tags:" - "```" - "import " - "Training Prompt" - "watermark"
+  - "--"
+  - "#"
+  - "Tags:"
+  - "```"
+  - "import "
+  - "Training Prompt"
+  - "watermark"
+  - "signature"
 
 closeup_keywords:
-  - closeup - crop - detail - macro - breast - nipple - areola - pussy - vulva
-  - labia - clit - cock - penis - balls - anus - genital - crotch - spread
+  - closeup
+  - crop
+  - detail
+  - macro
+  - breast
+  - nipple
+  - areola
+  - pussy
+  - vulva
+  - labia
+  - clit
+  - cock
+  - dick
+  - penis
+  - balls
+  - anus
+  - asshole
+  - genital
+  - crotch
+  - spread
+  - close-up
 
 post_processing:
   lowercase_tag: true
   force_comma_after_tag: true
   remove_quotes: true
   final_clean:
-    - "'' in bottom left corner" - "'' on the left side" - "watermark" - "©"
-    - "masterpiece" - "8k" - "absurdres" - "\\.\\.\\.$" - "\\?$" - "\\s+--.*$"
+    - "'' in bottom left corner"
+    - "'' on the left side"
+    - "'' left side"
+    - "'' vertically along"
+    - "reads \"xena_lobert\""
+    - "signature \"xena_lobert\""
+    - "of image"
+    - "with \""
+    - "watermark"
+    - "©"
+    - "©xena_lobert"
+    - "masterpiece"
+    - "best quality"
+    - "highly detailed"
+    - "8k"
+    - "ultra-detailed"
+    - "absurdres"
+    - "in the style of"
+    - "\\.\\.\\.$"
+    - "\\?$"
+    - "\\s+--.*$"
+    - "\\s+#.*$"
+    - "\\s+\\|\\s+.*$"
